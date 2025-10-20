@@ -1,21 +1,26 @@
-# API-Mind-Map
-Interactive mind map for testing, adding, and visualizing HTTP header payloads — built for web security researchers and bug bounty hunters.
-# Interactive HTTP Header Tests
+# Interactive HTTP Header Payload Map
 
-Interactive, browser-based mind map for testing missing/incorrect HTTP headers.
-- Click header tiles to view/edit payloads (per-node).
-- Export/import payload sets as JSON.
-- Standalone HTML: `index.html` (double-click to open locally).
+**Interactive mind map for testing, adding, and visualizing HTTP header payloads — built for web security researchers and bug bounty hunters.**
+
+This repository contains a standalone, browser-first tool for exploring realistic HTTP request payloads grouped by header/category. Each node holds payload examples you can copy, edit, add to, export, and import — all per-node (per header) so teams and individuals can build curated test suites.
+
+---
 
 ## Features
-- Per-node payload lists
-- Add / edit / delete payloads
-- Export and Import payload JSON
-- Keyboard shortcuts for quick category creation
-- Fallback UI — no external dependencies required
 
-## Quick Start
-1. Clone:
+- Visual **tile-based** map of header categories (no external dependencies required).
+- **Per-node payload lists**: add, edit, delete, and copy payloads for each header/topic.
+- **Add payloads interactively** via editor or prompt if a node has none.
+- **Export** all payloads to `payloads_by_node.json` for sharing / backup.
+- **Import** previously exported JSON to restore state.
+- Works offline — just open `index.html` (or `interactive_payloads_standalone.html`) in any modern browser.
+- Keyboard shortcuts and accessible tiles (Enter / Space to open).
+
+---
+
+## Quick start
+
+1. Clone the repo:
 ```bash
-git clone https://github.com/your-username/interactive-http-headers.git
+git clone https://github.com/YOUR_USERNAME/interactive-http-headers.git
 cd interactive-http-headers
