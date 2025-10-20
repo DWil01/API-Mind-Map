@@ -1,0 +1,3 @@
+# Contributor Covenant Code of Conduct
+
+... standard Contributor Covenant v2.1 snippet ...
