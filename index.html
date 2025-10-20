@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Interactive HTTP Header Payload Map — v1.0</title>
+  <style>
+    :root{
+      --bg:#f8fafc; --panel:#ffffff; --muted:#6b7280; --accent:#0f172a; --accent-2:#0369a1;
+      --text:#0f172a; --card-border:#e6eef6;
+    }
+    [data-theme="dark"]{
+      --bg:#0b1220; --panel:#071224; --muted:#9ca3af; --accent:#7dd3fc; --accent-2:#60a5fa;
+      --text:#e6eef3; --card-border:#0f172a;
+    }
+    html,body{height:100%;margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;background:var(--bg);color:var(--text)}
+    .app{display:flex;height:100vh}
+    main{flex:1;padding:18px;box-sizing:border-box;overflow:auto}
+    aside{width:480px;border-left:1px solid var(--card-border);padding:18px;box-sizing:border-box;overflow:auto;background:var(--panel)}
+    .topbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}
+    .title{font-weight:700;font-size:1.1rem}
+    .muted{color:var(--muted)}
+    .node-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+    .tile{background:var(--panel);border:1px solid var(--card-border);padding:10px;border-radius:8px;cursor:pointer;box-shadow:0 1px 0 rgba(0,0,0,0.02)}
+    .tile:focus{outline:2px solid var(--accent-2)}
+    .tile h4{margin:0 0 6px 0;font-size:1rem}
+    .tile p{margin:0;color:var(--muted);font-size:0.9rem}
+    .card{background:var(--panel);border:1px solid var(--card-border);padding:12px;border-radius:8px;margin-bottom:12px}
+    .small{font-size:0.85rem;color:var(--muted)}
+    .payload{background:transparent;border:1px dashed var(--card-border);padding:10px;border-radius:6px;margin-bottom:8px;white-space:pre-wrap;font-family:monospace}
+    button{background:var(--accent);color:white;border:none;padding:8px 10px;border-radius:6px;cursor:pointer}
+    .btn-ghost{background:transparent;color:var(--accent);border:1px solid var(--card-border);padding:7px 10px}
+    textarea,input,select{width:100%;padding:8px;border-radius:6px;border:1px solid var(--card-border);box-sizing:border-box;background:transparent;color:var(--text);font-family:monospace}
+    footer{margin-top:12px;font-size:0.85rem;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+    .controls{display:flex;gap:8px}
+    .hidden{display:none}
+    a.gh{color:var(--accent);text-decoration:none;font-weight:600}
+    @media(max-width:900px){ aside{width:340px} }
+  </style>
+</head>
+<body>
+  <div class="app" id="appRoot" data-theme="">
+    <main>
+      <div class="card topbar" style="align-items:center;display:flex;justify-content:space-between">
+        <div>
+          <div class="title">Interactive HTTP Header Payload Map</div>
+          <div class="small muted">Click any header tile to view or add payloads. Export / Import supported.</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <a class="gh" href="https://github.com/DWil01/API-Mind-Map/tree/main" target="_blank" rel="noopener noreferrer">View on GitHub ↗</a>
+          <button id="themeToggle" class="btn-ghost" title="Toggle dark mode">Dark</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:700">Header Categories</div>
+          <div class="small muted">Press <kbd>N</kbd> to create a new category</div>
+        </div>
+        <div id="nodeGrid" class="node-grid" style="margin-top:12px"></div>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:700">Quick help</div>
+        <ul class="small muted">
+          <li>Click a tile to select a node (even if empty).</li>
+          <li>Use the editor in sidebar to add or replace payloads for the selected node.</li>
+          <li>Export saves a single JSON file with all nodes and payload lists.</li>
+        </ul>
+      </div>
+    </main>
+
+    <aside>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div>
+          <div id="selectedTitle" style="font-weight:700">No node selected</div>
+          <div id="selectedDesc" class="small muted">Select a header tile to view or edit payloads.</div>
+        </div>
+        <div class="controls">
+          <button id="exportBtn" title="Export payloads">Export</button>
+          <button id="importBtn" class="btn-ghost" title="Import payloads">Import</button>
+          <input id="importFile" type="file" accept=".json" class="hidden" />
+        </div>
+      </div>
+
+      <div id="payloadArea" class="card">
+        <div id="payloadList"><div class="small muted">No node selected</div></div>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:700">Add / Edit payloads</div>
+        <div id="editorHint" class="small muted" style="margin-bottom:8px">Select a node first.</div>
+        <textarea id="payloadEditor" rows="6" placeholder="Paste a full HTTP request or single-line payload"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="addBtn">Add to node</button>
+          <button id="replaceBtn" class="btn-ghost">Replace node payloads</button>
+          <button id="clearBtn" class="btn-ghost">Clear editor</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:700">Category management</div>
+        <input id="newCategory" placeholder="New category name (exact title)" />
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="createBtn">Create</button>
+          <button id="deleteBtn" class="btn-ghost">Delete selected</button>
+        </div>
+      </div>
+
+      <footer>
+        <div class="small muted">v1.0 — by DeJon Wilson</div>
+        <div class="small muted">Open source — contributions welcome</div>
+      </footer>
+    </aside>
+  </div>
+
+  <script>
+  // ===== Utilities =====
+  function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function download(filename, text){
+    const blob = new Blob([text], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  }
+
+  // ===== Initial realistic payloads (per-node) =====
+  let payloads = {
+    "Content-Type": {
+      desc: "Testing server behavior with different Content-Type headers.",
+      items: [
+`POST /api/login HTTP/1.1
+Host: target.example
+Content-Type: application/json
+Content-Length: 48
+
+{"username":"admin","password":"pass123"}`,
+`POST /api/upload HTTP/1.1
+Host: target.example
+Content-Type: multipart/form-data; boundary=----TESTBOUNDARY
+
+------TESTBOUNDARY
+Content-Disposition: form-data; name="file"; filename="test.txt"
+Content-Type: text/plain
+
+File content here
+------TESTBOUNDARY--`
+      ]
+    },
+    "Authorization": {
+      desc: "Check authentication enforcement via Authorization headers.",
+      items: [
+`GET /api/account HTTP/1.1
+Host: target.example
+Authorization: Bearer invalid_token`,
+`GET /api/admin HTTP/1.1
+Host: target.example
+Authorization: Basic YWRtaW46YWRtaW4xMjM=`
+      ]
+    },
+    "Host": {
+      desc: "Detect host header injection or virtual host misrouting.",
+      items: [
+`GET / HTTP/1.1
+Host: internal.target
+User-Agent: curl/8.0.1`,
+`GET /admin HTTP/1.1
+Host: localhost
+X-Forwarded-Host: evil.com`
+      ]
+    },
+    "X-Forwarded-For": {
+      desc: "Test IP spoofing and access control bypass attempts.",
+      items: [
+`GET /admin HTTP/1.1
+Host: target.example
+X-Forwarded-For: 127.0.0.1`,
+`GET /api/private HTTP/1.1
+Host: target.example
+X-Forwarded-For: 10.0.0.5`
+      ]
+    },
+    "Origin / Referer": {
+      desc: "CORS and CSRF validation testing.",
+      items: [
+`POST /api/transfer HTTP/1.1
+Host: target.example
+Origin: https://evil.example
+Referer: https://evil.example/form
+Content-Type: application/json
+
+{"amount":1000,"recipient":"attacker"}`
+      ]
+    }
+  };
+
+  // ensure root category exists and is first
+  function ensureRoot(){
+    const root = 'Missing / Incorrect HTTP Headers';
+    if(!payloads[root]) payloads[root] = { desc: 'Root category for header-related tests.', items: [
+`GET /admin HTTP/1.1
+Host: 
+User-Agent: 
+Accept: */*
+Connection: close`
+    ]};
+    // reorder with root first
+    const reordered = {}; reordered[root] = payloads[root];
+    Object.keys(payloads).forEach(k => { if(k !== root) reordered[k] = payloads[k]; });
+    payloads = reordered;
+  }
+
+  // ===== Rendering =====
+  let selected = null;
+  const nodeGrid = document.getElementById('nodeGrid');
+  const selectedTitle = document.getElementById('selectedTitle');
+  const selectedDesc = document.getElementById('selectedDesc');
+  const payloadList = document.getElementById('payloadList');
+  const payloadEditor = document.getElementById('payloadEditor');
+  const editorHint = document.getElementById('editorHint');
+
+  function renderNodes(){
+    nodeGrid.innerHTML = '';
+    Object.keys(payloads).forEach(title => {
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+      tile.tabIndex = 0;
+      tile.innerHTML = `<h4>${escapeHtml(title)}</h4><p>${escapeHtml(payloads[title].desc||'')}</p>`;
+      tile.addEventListener('click', () => selectNode(title));
+      tile.addEventListener('keydown', (e) => { if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectNode(title); } });
+      nodeGrid.appendChild(tile);
+    });
+  }
+
+  function selectNode(title){
+    selected = title;
+    selectedTitle.textContent = title;
+    selectedDesc.textContent = payloads[title].desc || '';
+    editorHint.textContent = `Editing: ${title}`;
+    payloadEditor.value = '';
+    refreshPayloads();
+    // auto-prompt if no payloads
+    if(!payloads[title].items || payloads[title].items.length === 0){
+      setTimeout(()=> {
+        if(confirm(`"${title}" has no payloads. Add one now?`)){
+          const v = prompt('Paste HTTP payload (multi-line allowed):');
+          if(v && v.trim()){
+            payloads[title].items = payloads[title].items || [];
+            payloads[title].items.push(v.trim());
+            refreshPayloads();
+            renderNodes();
+            alert('Payload added.');
+          }
+        }
+      }, 20);
+    }
+  }
+
+  function refreshPayloads(){
+    payloadList.innerHTML = '';
+    if(!selected){ payloadList.innerHTML = '<div class="small muted">No node selected</div>'; return; }
+    const list = (payloads[selected] && payloads[selected].items) ? payloads[selected].items : [];
+    if(list.length === 0){ payloadList.innerHTML = '<div class="small muted">No payloads for this node yet.</div>'; return; }
+    list.forEach((p, idx) => {
+      const wrapper = document.createElement('div');
+      const payloadDiv = document.createElement('div');
+      payloadDiv.className = 'payload';
+      payloadDiv.textContent = p;
+      wrapper.appendChild(payloadDiv);
+
+      const controls = document.createElement('div');
+      controls.style.display = 'flex';
+      controls.style.gap = '8px';
+      controls.style.marginTop = '6px';
+
+      const copyBtn = document.createElement('button');
+      copyBtn.textContent = 'Copy';
+      copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(p).then(()=>{ copyBtn.textContent = 'Copied!'; setTimeout(()=>copyBtn.textContent='Copy',900); }).catch(()=>{ alert('Clipboard unavailable — copy manually.'); });
+      });
+      controls.appendChild(copyBtn);
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'btn-ghost';
+      editBtn.textContent = 'Edit';
+      editBtn.addEventListener('click', ()=>{ payloadEditor.value = p; });
+      controls.appendChild(editBtn);
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn-ghost';
+      delBtn.textContent = 'Delete';
+      delBtn.addEventListener('click', ()=>{
+        if(confirm('Delete this payload?')){
+          payloads[selected].items.splice(idx,1);
+          refreshPayloads();
+          renderNodes();
+        }
+      });
+      controls.appendChild(delBtn);
+
+      wrapper.appendChild(controls);
+      payloadList.appendChild(wrapper);
+    });
+  }
+
+  // ===== Editor controls =====
+  document.getElementById('addBtn').addEventListener('click', ()=>{
+    if(!selected){ alert('Select a node first'); return; }
+    const text = payloadEditor.value.trim();
+    if(!text){ alert('Enter a payload'); return; }
+    payloads[selected].items = payloads[selected].items || [];
+    payloads[selected].items.push(text);
+    payloadEditor.value = '';
+    refreshPayloads();
+    renderNodes();
+    alert('Added to '+selected);
+  });
+
+  document.getElementById('replaceBtn').addEventListener('click', ()=>{
+    if(!selected){ alert('Select a node first'); return; }
+    const text = payloadEditor.value.trim();
+    const lines = text.length ? text.split('\n').map(s=>s.trim()).filter(Boolean): [];
+    payloads[selected].items = lines;
+    payloadEditor.value = '';
+    refreshPayloads();
+    renderNodes();
+    alert('Replaced payloads for '+selected);
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', ()=>{ payloadEditor.value=''; });
+
+  document.getElementById('createBtn').addEventListener('click', ()=>{
+    const name = document.getElementById('newCategory').value.trim();
+    if(!name){ alert('Enter a category name'); return; }
+    if(payloads[name]){ alert('Category already exists'); return; }
+    payloads[name] = { desc:'', items:[] };
+    document.getElementById('newCategory').value = '';
+    renderNodes();
+    alert('Category created. Click it to select.');
+  });
+
+  document.getElementById('deleteBtn').addEventListener('click', ()=>{
+    if(!selected){ alert('Select a node to delete'); return; }
+    if(selected === 'Missing / Incorrect HTTP Headers'){ alert('Root category cannot be deleted'); return; }
+    if(!confirm('Delete category "'+selected+'" and all its payloads?')) return;
+    delete payloads[selected];
+    selected = null;
+    selectedTitle.textContent = 'No node selected';
+    selectedDesc.textContent = 'Select a header tile to view or edit payloads.';
+    payloadList.innerHTML = '';
+    editorHint.textContent = 'Select a node first.';
+    renderNodes();
+  });
+
+  // ===== Export / Import =====
+  document.getElementById('exportBtn').addEventListener('click', ()=>{
+    try{
+      const data = JSON.stringify(payloads, null, 2);
+      download('payloads_by_node.json', data);
+    }catch(e){ alert('Export failed: '+(e && e.message?e.message:'unknown')); }
+  });
+
+  document.getElementById('importBtn').addEventListener('click', ()=>{ document.getElementById('importFile').click(); });
+  document.getElementById('importFile').addEventListener('change', function(e){
+    const f = e.target.files && e.target.files[0];
+    if(!f) return;
+    const reader = new FileReader();
+    reader.onload = function(ev){
+      try{
+        const obj = JSON.parse(ev.target.result);
+        if(typeof obj !== 'object' || obj === null) throw new Error('Invalid JSON');
+        // Simple validation & normalize shape
+        Object.keys(obj).forEach(k => {
+          if(typeof obj[k] === 'object'){
+            if(!('items' in obj[k])) obj[k].items = (Array.isArray(obj[k]) ? obj[k] : []);
+          } else throw new Error('Invalid structure for key: '+k);
+        });
+        payloads = obj;
+        ensureRoot();
+        selected = null;
+        selectedTitle.textContent = 'No node selected';
+        selectedDesc.textContent = 'Imported payloads.';
+        payloadList.innerHTML = '';
+        renderNodes();
+        alert('Import successful');
+      }catch(err){ alert('Import failed: '+(err && err.message?err.message:'unknown')); }
+    };
+    reader.readAsText(f);
+    e.target.value = '';
+  });
+
+  // ===== Theme / Dark mode toggle & keyboard shortcut =====
+  const appRoot = document.getElementById('appRoot');
+  const themeToggle = document.getElementById('themeToggle');
+  function setTheme(t){
+    appRoot.setAttribute('data-theme', t);
+    themeToggle.textContent = t === 'dark' ? 'Light' : 'Dark';
+    localStorage.setItem('payload_map_theme', t);
+  }
+  themeToggle.addEventListener('click', ()=>{
+    const current = appRoot.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    setTheme(current === 'dark' ? 'dark' : 'light');
+  });
+  (function(){
+    const saved = localStorage.getItem('payload_map_theme') || (window.matchMedia && window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
+    setTheme(saved === 'dark' ? 'dark' : 'light');
+  })();
+
+  document.addEventListener('keydown', function(e){
+    if(document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+    if(e.key.toLowerCase() === 'n'){ const nm = prompt('New category name:'); if(nm && nm.trim()){ const name = nm.trim(); if(payloads[name]) return alert('Category exists'); payloads[name] = { desc:'', items:[] }; renderNodes(); alert('Created: '+name); } }
+  });
+
+  // ===== Init =====
+  (function init(){
+    ensureRoot();
+    renderNodes();
+    // auto-select root on load
+    selectNode('Missing / Incorrect HTTP Headers');
+  })();
+
+  </script>
+</body>
+</html>
